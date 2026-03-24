@@ -1,8 +1,16 @@
 import asyncio
+import concurrent.futures
 
 from app.domain.exceptions.extraction_exceptions import LLMUnavailableError
 from app.infrastructure.llm.ollama_llm_service import OllamaLLMService
 from app.langgraph_workflow.state import WorkflowState
+
+
+def _run_async(coro):
+    """Ejecuta una corutina en un thread separado para evitar conflictos con el event loop de FastAPI."""
+    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+        future = executor.submit(asyncio.run, coro)
+        return future.result()
 
 
 def process_with_llm_node(state: WorkflowState) -> WorkflowState:
@@ -13,9 +21,7 @@ def process_with_llm_node(state: WorkflowState) -> WorkflowState:
 
     service = OllamaLLMService()
     try:
-        loop = asyncio.new_event_loop()
-        result = loop.run_until_complete(service.process(state["raw_text"]))
-        loop.close()
+        result = _run_async(service.process(state["raw_text"]))
         return {**state, "llm_result": result, "error": None, "retry_count": 0}
     except LLMUnavailableError as exc:
         new_retry = state.get("retry_count", 0) + 1
