@@ -8,7 +8,7 @@ import { ErrorMessage } from "@/components/status/ErrorMessage";
 import { Card } from "@/components/common/Card";
 
 export default function App() {
-  const { status, result, error, selectedFile, selectFile, submit, reset } =
+  const { status, result, error, selectedFile, progress, progressLabel, selectFile, submit, reset } =
     useDocumentUpload();
 
   const isProcessing = status === "uploading" || status === "processing";
@@ -46,7 +46,7 @@ export default function App() {
             )}
 
             {isProcessing ? (
-              <ProcessingIndicator status={status as "uploading" | "processing"} />
+              <ProcessingIndicator progress={progress} label={progressLabel} />
             ) : (
               <div className="mt-4">
                 <UploadButton

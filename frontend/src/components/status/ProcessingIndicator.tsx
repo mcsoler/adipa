@@ -1,21 +1,24 @@
 interface ProcessingIndicatorProps {
-  status: "uploading" | "processing";
+  progress: number;
+  label: string;
 }
 
-const MESSAGES: Record<string, string> = {
-  uploading: "Subiendo documento...",
-  processing: "Extrayendo preguntas con IA...",
-};
-
-export function ProcessingIndicator({ status }: ProcessingIndicatorProps) {
+export function ProcessingIndicator({ progress, label }: ProcessingIndicatorProps) {
   return (
-    <div className="flex flex-col items-center gap-4 py-10">
-      <div className="relative w-14 h-14">
-        <div className="absolute inset-0 border-4 border-brand-100 rounded-full" />
-        <div className="absolute inset-0 border-4 border-brand-500 border-t-transparent rounded-full animate-spin" />
+    <div className="flex flex-col gap-4 py-8">
+      <div className="flex justify-between text-sm text-gray-500 mb-1">
+        <span>{label}</span>
+        <span>{progress}%</span>
       </div>
-      <p className="text-gray-600 font-medium">{MESSAGES[status]}</p>
-      <p className="text-sm text-gray-400">Esto puede tardar unos segundos</p>
+      <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
+        <div
+          className="h-3 rounded-full bg-brand-500 transition-all duration-[1500ms] ease-in-out"
+          style={{ width: `${progress}%` }}
+        />
+      </div>
+      <p className="text-xs text-gray-400 text-center">
+        El modelo de IA puede tardar entre 1 y 3 minutos según el tamaño del documento
+      </p>
     </div>
   );
 }

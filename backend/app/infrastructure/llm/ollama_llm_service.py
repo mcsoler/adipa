@@ -24,7 +24,7 @@ class OllamaLLMService(ILLMService):
         self._model = model or settings.ollama_model
 
     async def process(self, text: str) -> dict[str, Any]:
-        prompt = USER_PROMPT_TEMPLATE.format(text=text[:8000])  # límite de contexto
+        prompt = USER_PROMPT_TEMPLATE.format(text=text[:4000])  # límite de contexto
         payload = {
             "model": self._model,
             "messages": [
