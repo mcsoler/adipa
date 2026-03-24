@@ -1,4 +1,5 @@
 import json
+import logging
 import re
 from typing import Any
 
@@ -11,6 +12,8 @@ from app.infrastructure.llm.prompts.question_extraction_prompt import (
     USER_PROMPT_TEMPLATE,
 )
 from app.interfaces.services.llm_service import ILLMService
+
+logger = logging.getLogger(__name__)
 
 
 class OllamaLLMService(ILLMService):
@@ -45,7 +48,10 @@ class OllamaLLMService(ILLMService):
             raise LLMUnavailableError(f"Ollama respondió con error {exc.response.status_code}") from exc
 
         raw_content = response.json()["message"]["content"]
-        return self._parse_json(raw_content)
+        logger.info("=== RESPUESTA CRUDA DEL LLM ===\n%s\n=== FIN RESPUESTA ===", raw_content)
+        parsed = self._parse_json(raw_content)
+        logger.info("=== JSON PARSEADO ===\n%s\n=== FIN JSON ===", parsed)
+        return parsed
 
     def _parse_json(self, raw: str) -> dict[str, Any]:
         """Extrae JSON de la respuesta del LLM, tolerante a texto extra."""

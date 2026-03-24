@@ -1,7 +1,11 @@
+import logging
+
 from app.domain.exceptions.document_exceptions import EmptyDocumentError, UnsupportedFileTypeError
 from app.domain.value_objects.file_type import FileType
 from app.infrastructure.extractors.extractor_factory import ExtractorFactory
 from app.langgraph_workflow.state import WorkflowState
+
+logger = logging.getLogger(__name__)
 
 
 def extract_text_node(state: WorkflowState) -> WorkflowState:
@@ -14,6 +18,7 @@ def extract_text_node(state: WorkflowState) -> WorkflowState:
         if not raw_text.strip():
             raise EmptyDocumentError()
 
+        logger.info("=== TEXTO EXTRAÍDO (%d chars) ===\n%s\n=== FIN TEXTO ===", len(raw_text), raw_text[:2000])
         return {**state, "raw_text": raw_text, "error": None}
 
     except (UnsupportedFileTypeError, EmptyDocumentError) as exc:
