@@ -7,8 +7,9 @@ from app.langgraph_workflow.nodes.validate_output_node import validate_output_no
 
 
 def should_retry(state: WorkflowState) -> str:
-    """Enrutador condicional: si hay error por LLM y quedan reintentos, vuelve a intentar."""
-    if state.get("error") and state.get("retry_count", 0) < 2:
+    """Enrutador condicional: reintenta LLM hasta 2 veces (retry_count 1 o 2)."""
+    retry_count = state.get("retry_count", 0)
+    if state.get("error") and 0 < retry_count < 3:
         return "process_with_llm"
     return "validate_output"
 

@@ -7,7 +7,8 @@ from app.langgraph_workflow.state import WorkflowState
 
 def process_with_llm_node(state: WorkflowState) -> WorkflowState:
     """Nodo 2: envía el texto al LLM y obtiene JSON estructurado (SRP)."""
-    if state.get("error"):
+    # Solo omitir si el error viene de un nodo anterior (no de un reintento LLM)
+    if state.get("error") and state.get("retry_count", 0) == 0:
         return state
 
     service = OllamaLLMService()
@@ -17,9 +18,7 @@ def process_with_llm_node(state: WorkflowState) -> WorkflowState:
         loop.close()
         return {**state, "llm_result": result, "error": None, "retry_count": 0}
     except LLMUnavailableError as exc:
-        retry = state.get("retry_count", 0)
-        if retry < 2:
-            return {**state, "retry_count": retry + 1, "error": str(exc)}
-        return {**state, "llm_result": {}, "error": str(exc)}
+        new_retry = state.get("retry_count", 0) + 1
+        return {**state, "retry_count": new_retry, "error": str(exc)}
     except Exception as exc:
-        return {**state, "llm_result": {}, "error": f"Error en LLM: {exc}"}
+        return {**state, "llm_result": {}, "error": f"Error en LLM: {exc}", "retry_count": 3}
