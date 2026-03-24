@@ -4,6 +4,9 @@ export default {
   content: ["./index.html", "./src/**/*.{ts,tsx}"],
   theme: {
     extend: {
+      fontFamily: {
+        sans: ['Playfair Display', 'serif'],
+      },
       colors: {
         brand: {
           50: "#eff6ff",
