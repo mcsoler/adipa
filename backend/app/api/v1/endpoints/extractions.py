@@ -1,6 +1,7 @@
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, UploadFile
+from fastapi.responses import JSONResponse
 
 from app.application.dependencies.container import get_extract_use_case, get_result_use_case
 from app.application.schemas.document_schema import ProcessingResponse
@@ -20,7 +21,10 @@ async def process_document(
     """Procesa un documento ya subido y extrae sus preguntas."""
     file_bytes = await file.read()
     file_type = FileType.from_extension(file.filename).value
-    return await use_case.execute(document_id, file_bytes, file_type)
+    result = await use_case.execute(document_id, file_bytes, file_type)
+    if result.status == "failed":
+        return JSONResponse(status_code=503, content=result.model_dump(mode="json"))
+    return result
 
 
 @router.get("/{document_id}", response_model=ProcessingResponse)

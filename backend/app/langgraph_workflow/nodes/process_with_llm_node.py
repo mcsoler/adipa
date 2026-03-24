@@ -27,4 +27,5 @@ def process_with_llm_node(state: WorkflowState) -> WorkflowState:
         new_retry = state.get("retry_count", 0) + 1
         return {**state, "retry_count": new_retry, "error": str(exc)}
     except Exception as exc:
-        return {**state, "llm_result": {}, "error": f"Error en LLM: {exc}", "retry_count": 3}
+        msg = str(exc) or repr(exc)
+        return {**state, "llm_result": {}, "error": f"Error en LLM: {msg}", "retry_count": 3}
