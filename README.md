@@ -10,14 +10,15 @@ Aplicación web full-stack que recibe un documento (PDF, DOCX o XLSX), extrae au
 2. [Arquitectura](#arquitectura)
 3. [Stack tecnológico](#stack-tecnológico)
 4. [Estructura de carpetas](#estructura-de-carpetas)
-5. [Despliegue con Docker Compose](#despliegue-con-docker-compose)
-6. [Variables de entorno](#variables-de-entorno)
-7. [API Reference](#api-reference)
-8. [Base de datos](#base-de-datos)
-9. [Flujo LangGraph](#flujo-langgraph)
-10. [Principios SOLID aplicados](#principios-solid-aplicados)
-11. [Tests (TDD)](#tests-tdd)
-12. [Desarrollo local sin Docker](#desarrollo-local-sin-docker)
+5. [Despliegue en Producción](#despliegue-en-producción)
+6. [Despliegue con Docker Compose (local)](#despliegue-con-docker-compose)
+7. [Variables de entorno](#variables-de-entorno)
+8. [API Reference](#api-reference)
+9. [Base de datos](#base-de-datos)
+10. [Flujo LangGraph](#flujo-langgraph)
+11. [Principios SOLID aplicados](#principios-solid-aplicados)
+12. [Tests (TDD)](#tests-tdd)
+13. [Desarrollo local sin Docker](#desarrollo-local-sin-docker)
 
 ---
 
@@ -242,6 +243,207 @@ adipa/
             │              AlternativasList, DownloadButton
             └── status/    ProcessingIndicator, ErrorMessage
 ```
+
+---
+
+## Despliegue en Producción
+
+Guía completa desde un servidor limpio Ubuntu 22.04 LTS.
+
+### Requisitos mínimos de servidor
+
+| Recurso | Mínimo | Recomendado |
+|---------|--------|-------------|
+| RAM | 8 GB | 16 GB |
+| CPU | 4 cores | 8 cores |
+| Disco | 20 GB libres | 40 GB |
+| SO | Ubuntu 22.04 | Ubuntu 22.04 LTS |
+| Puertos abiertos | 6000, 5000 | 6000, 5000 |
+
+> Con menos de 8 GB de RAM usar el modelo `phi3` (2.3 GB) en lugar de `llama3` (4.7 GB).
+
+---
+
+### Paso 1 — Instalar Docker
+
+```bash
+curl -fsSL https://get.docker.com | sh
+sudo usermod -aG docker $USER
+newgrp docker
+docker --version
+```
+
+---
+
+### Paso 2 — Instalar Ollama
+
+```bash
+curl -fsSL https://ollama.com/install.sh | sh
+```
+
+Verificar que el servicio quedó activo y habilitarlo para inicio automático:
+
+```bash
+systemctl status ollama
+
+# Si no está corriendo:
+systemctl start ollama
+systemctl enable ollama
+```
+
+---
+
+### Paso 3 — Descargar el modelo LLM
+
+```bash
+# Ver modelos disponibles
+ollama list
+
+# Descargar según RAM disponible:
+ollama pull llama3        # ~4.7 GB  — recomendado (≥8 GB RAM)
+ollama pull mistral       # ~4.1 GB  — buena alternativa
+ollama pull phi3          # ~2.3 GB  — opción ligera (4 GB RAM)
+ollama pull llama3:70b    # ~40 GB   — solo con GPU dedicada
+```
+
+Verificar que el modelo responde antes de continuar:
+
+```bash
+ollama run llama3 "responde solo: hola"
+# Ctrl+D para salir
+```
+
+---
+
+### Paso 4 — Clonar el repositorio
+
+```bash
+git clone git@github.com:mcsoler/adipa.git
+cd adipa
+```
+
+---
+
+### Paso 5 — Configurar variables de entorno
+
+```bash
+cp .env.example .env
+nano .env
+```
+
+Obtener la IP del bridge de Docker (necesaria para que el backend alcance Ollama):
+
+```bash
+ip route | grep docker0 | awk '{print $9}'
+# Normalmente: 172.17.0.1
+```
+
+Editar `.env` con los valores de producción:
+
+```env
+# PostgreSQL
+POSTGRES_USER=adipa
+POSTGRES_PASSWORD=pon_aqui_una_password_segura
+POSTGRES_DB=adipa_db
+
+# Backend
+DATABASE_URL=postgresql+asyncpg://adipa:pon_aqui_una_password_segura@postgres:5432/adipa_db
+
+# Ollama — usar la IP del bridge Docker (172.17.0.1), NO host.docker.internal
+OLLAMA_HOST=http://172.17.0.1:11434
+OLLAMA_MODEL=llama3
+
+# CORS — reemplazar con tu IP o dominio real
+CORS_ORIGINS=http://TU_IP_O_DOMINIO:6000
+
+# Frontend
+VITE_API_URL=http://TU_IP_O_DOMINIO:5000
+```
+
+> **Importante:** En Linux, `host.docker.internal` no funciona por defecto. Siempre usar la IP del bridge (`172.17.0.1`) o la IP pública del servidor.
+
+---
+
+### Paso 6 — Levantar la aplicación
+
+```bash
+docker compose up --build -d
+```
+
+Verificar que los 3 contenedores están en estado `healthy` o `running`:
+
+```bash
+docker compose ps
+```
+
+Ver logs en tiempo real si hay problemas:
+
+```bash
+docker compose logs backend -f
+docker compose logs frontend -f
+docker compose logs postgres -f
+```
+
+---
+
+### Paso 7 — Verificar que todo funciona
+
+```bash
+# Backend health check
+curl http://localhost:5000/health
+# Esperado: {"status":"ok","service":"adipa-backend"}
+
+# Frontend responde
+curl -I http://localhost:6000
+# Esperado: HTTP/1.1 200 OK
+
+# Prueba completa de extracción
+curl -X POST http://localhost:5000/api/v1/documents/upload \
+  -F "file=@/ruta/a/tu/documento.pdf"
+# Esperado: {"document_id":"...","status":"pending",...}
+```
+
+Acceder desde el navegador: `http://TU_IP_O_DOMINIO:6000`
+
+---
+
+### Comandos útiles en producción
+
+```bash
+# Ver estado de todos los servicios
+docker compose ps
+
+# Reiniciar un servicio específico
+docker compose restart backend
+
+# Ver logs de las últimas 100 líneas
+docker compose logs --tail=100 backend
+
+# Actualizar a nueva versión
+git pull
+docker compose up --build -d
+
+# Detener todo (conserva datos)
+docker compose down
+
+# Detener y eliminar volúmenes (BORRA LA BASE DE DATOS)
+docker compose down -v
+
+# Ver uso de recursos
+docker stats
+```
+
+---
+
+### Solución de problemas frecuentes
+
+| Problema | Causa probable | Solución |
+|----------|---------------|----------|
+| Backend no conecta a Ollama | `host.docker.internal` no resuelve en Linux | Cambiar `OLLAMA_HOST` a `http://172.17.0.1:11434` |
+| Error 503 en `/process` | Ollama no está corriendo | `systemctl start ollama` |
+| Frontend muestra pantalla en blanco | `VITE_API_URL` incorrecto | Verificar IP en `.env` y reconstruir |
+| PostgreSQL no inicia | Puerto 5435 ocupado | `lsof -i :5435` para ver qué lo usa |
+| Modelo responde muy lento | RAM insuficiente | Cambiar a `phi3` en `OLLAMA_MODEL` |
 
 ---
 
