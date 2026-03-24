@@ -291,6 +291,27 @@ systemctl start ollama
 systemctl enable ollama
 ```
 
+**Importante:** Por defecto, Ollama escucha solo en `127.0.0.1` (localhost). Para que los contenedores Docker puedan alcanzarlo, debes configurarlo para escuchar en todas las interfaces:
+
+```bash
+# Crear el directorio de configuración override
+sudo mkdir -p /etc/systemd/system/ollama.service.d
+
+# Crear el archivo de override
+sudo tee /etc/systemd/system/ollama.service.d/override.conf << 'EOF'
+[Service]
+Environment="OLLAMA_HOST=0.0.0.0"
+EOF
+
+# Recargar systemd y reiniciar Ollama
+sudo systemctl daemon-reload
+sudo systemctl restart ollama
+
+# Verificar que Ollama ahora es accesible en el bridge Docker
+curl -s http://172.17.0.1:11434/api/tags
+# Debe retornar JSON con la lista de modelos instalados
+```
+
 ---
 
 ### Paso 3 — Descargar el modelo LLM
