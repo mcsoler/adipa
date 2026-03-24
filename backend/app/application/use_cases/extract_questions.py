@@ -32,7 +32,7 @@ class ExtractQuestionsUseCase:
             "retry_count": 0,
         }
 
-        final_state = extraction_graph.invoke(initial_state)
+        final_state = extraction_graph.invoke(initial_state, {"recursion_limit": 10})
 
         if final_state.get("error"):
             await self._doc_repo.update_status(document_id, "failed")

@@ -12,14 +12,14 @@ def process_with_llm_node(state: WorkflowState) -> WorkflowState:
 
     service = OllamaLLMService()
     try:
-        result = asyncio.get_event_loop().run_until_complete(
-            service.process(state["raw_text"])
-        )
-        return {**state, "llm_result": result, "error": None}
+        loop = asyncio.new_event_loop()
+        result = loop.run_until_complete(service.process(state["raw_text"]))
+        loop.close()
+        return {**state, "llm_result": result, "error": None, "retry_count": 0}
     except LLMUnavailableError as exc:
         retry = state.get("retry_count", 0)
         if retry < 2:
-            return {**state, "retry_count": retry + 1, "error": None}
+            return {**state, "retry_count": retry + 1, "error": str(exc)}
         return {**state, "llm_result": {}, "error": str(exc)}
     except Exception as exc:
         return {**state, "llm_result": {}, "error": f"Error en LLM: {exc}"}
